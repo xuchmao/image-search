@@ -6,13 +6,14 @@
 * 计算目标图片特征值，使用PostgreSQL进行向量查询
 * pg imgsmlr使用Haar小波变换提取图片特征值, 图片搜索效果比常见的感知哈希方式效果要好一些
 
-## PostgreSQL安装
-### mac os 安装 
-```
-brew install postgresql
-```
+## 性能
+* 充分利用cpu + 内存，发挥硬件性能
+* 数据库内存参数、并行参数调优
+* 使用pg_prewarm插件进行数据预热，减少磁盘IO
+* 图片特征值建立区表，使用dblink模拟并行查询，将单表查询改为分区表并行查询，充分利用每一个cpu核心
+* 硬件配置cpu 16核 32G内存, 单机一秒即可在一亿图片中完成搜索
 
-### linux 源码安装
+## linux 源码安装PostgreSQL
 
 * 安装依赖 
 ``` 
@@ -193,7 +194,7 @@ ps -ef | grep postgresql
 
 ```
 
-### 编译imgsmlr插件
+## 编译imgsmlr插件
 * [imgsmlr插件源码](https://github.com/postgrespro/imgsmlr)
 * mac os环境make命令依赖 xcode, 编译前需确保xcode已经安装
 * imgsmlr编译依赖[libgd库](https://github.com/libgd/libgd), mac os执行brew install gd安装gd, ubuntu使用apt-get install libgd2-noxpm-dev安装gd
@@ -221,12 +222,3 @@ CFLAGS PG_LDFLAGS参数用于指定gd.h文件和gd动态库所在位置
 make USE_PGXS=1 
 make USE_PGXS=1 install
 ```
-
-## 图片搜索
-* 充分利用cpu + 内存，发挥硬件性能
-* 数据库内存参数、并行参数调优
-* 使用pg_prewarm插件进行数据预热，减少磁盘IO
-* 图片特征值建立区表，使用dblink模拟并行查询，将单表查询改为分区表并行查询，充分利用每一个cpu核心
-
-### 性能
-* 硬件配置cpu 16核 32G内存, 单机一秒即可在一亿图片中完成搜索
