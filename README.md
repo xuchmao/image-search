@@ -1,8 +1,8 @@
-# 说明文档
-* 简单介绍如何使用PostgreSQL搭建一个相似图片搜索服务
+# 说明
+* 简单介绍如何使用PostgreSQL搭建一个简单的相似图片搜索服务
 
 ## 方案介绍
-* 使用PostgreSQL + imgsmlr插件计算图片特征值，
+* 使用PostgreSQL + imgsmlr插件计算图片特征值
 * 提取目标图片特征值，使用PostgreSQL进行向量查询
 
 ## PostgreSQL安装
