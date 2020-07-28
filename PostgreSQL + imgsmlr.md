@@ -3,8 +3,8 @@
 
 ## 方案介绍
 * 使用PostgreSQL + imgsmlr插件计算图片特征值
-* 提取目标图片特征值，使用PostgreSQL进行向量查询
-* pg imgsmlr使用Haar小波变换提取图片特征值。图片搜索效果比常见的感知哈希方式效果要好一些
+* 计算目标图片特征值，使用PostgreSQL进行向量查询
+* pg imgsmlr使用Haar小波变换提取图片特征值, 图片搜索效果比常见的感知哈希方式效果要好一些
 
 ## PostgreSQL安装
 ### mac os 安装 
@@ -153,7 +153,7 @@ cd ${PGDATA}
 vim postgresql.conf
 
 listen_addresses = '*'
-port = 1921
+port = 5432
 
 -- 配置远程访问策略 --
 cd ${PGDATA}
