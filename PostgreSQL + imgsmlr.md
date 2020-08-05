@@ -381,25 +381,25 @@ $$ language plpgsql strict;
 
 ## 配置数据库重启脚本
 
-在${PGDATA}创建bin目录，然后在bin目录创建数据库重启脚本db_restart.sh, 内容如下
-
+* 在${PGDATA}创建bin目录，然后在bin目录创建数据库重启脚本db_restart.sh, 内容如下
+```
 #! /bin/bash
 
 pg_ctl restart
 sleep 3
 psql -p 1921 image -c "select prewarm_image_sig()"
-
+```
 
 ## 配置服务器重启数据库初始化脚本
 
-在${PGDATA}/bin目录创建预热image_sig表sql文件, 命名为db_image_init.sql, 内容如下
-
+* 在${PGDATA}/bin目录创建预热image_sig表sql文件, 命名为db_image_init.sql, 内容如下
+```
 \c image;
 select prewarm_image_sig();
+```
 
-
-在/etc/init.d/postgresql文件添加以下内容
-
+* 在/etc/init.d/postgresql文件添加以下内容
+```
 -- 设置psql命令位置 端口号 -- 
 PSQL="$prefix/bin/psql"
 PORT=1921
@@ -407,6 +407,6 @@ PORT=1921
 -- 在start/restart/reload位置添加以下命令 --
 sleep 5
 su - $PGUSER -c "$PSQL -p $PORT -f $PGDATA/bin/db_image_init.sql >> $PGDATA/pg_log/db_image_init.log 2>&1 &"
-
+```
 ## 业务开发注意事项
 * 插入图片之后，需要预热对应image_sig对应分区表和索引。分区可通过执行 explain select id from image_sig where image_id = :id 获取。
