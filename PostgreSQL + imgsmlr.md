@@ -266,7 +266,7 @@ declare
 begin
   for i in 0..15
   loop
-    execute format('create table image_sig_%s partition of image_sig for values WITH (MODULUS 32, REMAINDER %s)', i, i);
+    execute format('create table image_sig_%s partition of image_sig for values WITH (MODULUS 16, REMAINDER %s)', i, i);
   end loop;
 end;
 $$;
@@ -302,7 +302,7 @@ declare
   ts1 timestamp;
   t timestamp;
 begin
-  pt_num := 32 -1;
+  pt_num := 16 -1;
 
   t := clock_timestamp();
   for i in 0..pt_num loop
@@ -336,7 +336,7 @@ returns void as $$
 declare
 begin
   raise notice 'prewarm image_sig start @ %', now()::text;
-  for i in 0..31 loop
+  for i in 0..15 loop
     execute format('select pg_prewarm(''image_sig_%s_sig_idx'', ''buffer'')', i);
     raise notice 'prewarm idx image_sig_%_sig_idx done', i;
     execute format('select pg_prewarm(''image_sig_%s'', ''buffer'')', i);
@@ -347,6 +347,35 @@ begin
 end;
 $$ language plpgsql strict;
 
+-- 性能测试测试SQL--
+
+create or replace function get_rand_img_sig(int)
+returns signature as $$
+  select ('('||rtrim(ltrim(array(select (random()*$1)::float4 from generate_series(1,16))::text,'{'),'}')||')')::signature;
+$$ language sql strict stable;
+
+create or replace function explain_image_sig_query(
+  v_max int default 1,
+  v_limt int default 1
+) returns void as $$
+declare
+  sig text;
+  t_sql text;
+begin
+  for i in 0..v_max-1 loop
+    sig := get_rand_img_sig(10);
+    t_sql:= format('explain (analyze,verbose,timing,costs,buffers)
+  select
+    image_id
+  from parallel_image_search(''%s''::signature, %s) as t(image_id int, sig signature)
+  order by sig <-> ''%s''::signature
+  limit 1;', sig, v_limt, sig);
+    raise notice '%', t_sql;
+    execute t_sql;
+  end loop;
+  return;
+end;
+$$ language plpgsql strict;
 
 ```
 
