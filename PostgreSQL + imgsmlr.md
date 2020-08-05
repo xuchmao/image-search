@@ -222,3 +222,159 @@ CFLAGS PG_LDFLAGS参数用于指定gd.h文件和gd动态库所在位置
 make USE_PGXS=1 
 make USE_PGXS=1 install
 ```
+
+## 数据库表结构
+```
+-- 数据库 Postgresql 12.3版本 --
+
+-- 创建数据库 --
+create database image with encoding='utf8';
+
+-- 使用数据库 --
+\c image;
+
+-- 创建插件 --
+create extension if not exists dblink;
+
+create extension if not exists imgsmlr;
+
+create extension if not exists pg_prewarm;
+
+-- 创建临时图片数据表, 使用imgsmlr插件计算pattern和signature 使用完之后删除记录 --
+
+create table tmp_image (id varchar(36) primary key, data bytea, ctime timestamp(0) default localtimestamp(0));
+
+create table image_sig (
+  image_id int primary key,
+  sig signature not null
+)
+partition by hash (image_id);
+
+-- image_sig字段注释 --
+comment on table image_sig is '图片特征值表';
+comment on column image_sig.image_id is '图片ID';
+comment on column image_sig.sig is '图片signature';
+
+-- 创建image_sig表sig字段索引
+
+create index idx_img_sig on image_sig using gist(sig);
+
+-- 创建image_sig分区表 --
+do language plpgsql $$
+declare
+  i int;
+begin
+  for i in 0..15
+  loop
+    execute format('create table image_sig_%s partition of image_sig for values WITH (MODULUS 32, REMAINDER %s)', i, i);
+  end loop;
+end;
+$$;
+
+-- dblink 连接函数 --
+
+create or replace function conn(
+  name,   -- dblink名字
+  text    -- 连接串,URL
+) returns void as $$
+declare
+begin
+  perform dblink_connect_u($1, $2);
+  return;
+exception when others then
+  return;
+end;
+$$ language plpgsql strict;
+
+-- 并行查询相似图像函数 根据需要设置conn_url中的user --
+
+create or replace function parallel_image_search(
+  v_sig signature,  -- 图像特征值
+  v_pt_limit int -- 每个分区返回数量
+)
+returns setof record as
+$$
+declare
+  pt_num int;
+  conn_url text := 'dbname=image user=foo'; -- dblink连接
+  conn_name text := 'd_conn_';
+  sql text;
+  ts1 timestamp;
+  t timestamp;
+begin
+  pt_num := 32 -1;
+
+  t := clock_timestamp();
+  for i in 0..pt_num loop
+    ts1 := clock_timestamp();
+    perform conn(conn_name||i, conn_url);
+    perform image_id from dblink_get_result(conn_name||i, false) as t(image_id int);
+    sql := format('select * from image_sig_%s order by sig <-> %L limit %s', i, v_sig, v_pt_limit);
+    perform dblink_send_query(conn_name||i, sql);
+  end loop;
+
+  raise notice 'conn time cost - %', clock_timestamp()-t;
+  ts1 := clock_timestamp();
+  for i in 0..pt_num loop
+    return query
+    select
+      image_id, sig
+    from
+      dblink_get_result(conn_name||i, false)
+    as t(image_id int, sig signature);
+  end loop;
+
+  raise notice 'query time cost - %', clock_timestamp()-ts1;
+  return;
+end;
+$$ language plpgsql strict;
+
+-- image_sig表数据预热函数 --
+
+create or replace function prewarm_image_sig()
+returns void as $$
+declare
+begin
+  raise notice 'prewarm image_sig start @ %', now()::text;
+  for i in 0..31 loop
+    execute format('select pg_prewarm(''image_sig_%s_sig_idx'', ''buffer'')', i);
+    raise notice 'prewarm idx image_sig_%_sig_idx done', i;
+    execute format('select pg_prewarm(''image_sig_%s'', ''buffer'')', i);
+    raise notice 'prewarm idx image_sig_% done', i;
+  end loop;
+  raise notice 'prewarm image_sig end @ %', now()::text;
+  return;
+end;
+$$ language plpgsql strict;
+
+
+```
+
+## 配置数据库重启脚本
+
+在${PGDATA}创建bin目录，然后在bin目录创建数据库重启脚本db_restart.sh, 内容如下
+
+#! /bin/bash
+
+pg_ctl restart
+sleep 3
+psql -p 1921 image -c "select prewarm_image_sig()"
+
+
+## 配置服务器重启数据库初始化脚本
+
+在${PGDATA}/bin目录创建预热image_sig表sql文件, 命名为db_image_init.sql, 内容如下
+
+\c image;
+select prewarm_image_sig();
+
+
+在/etc/init.d/postgresql文件添加以下内容
+
+-- 设置psql命令位置 端口号 -- 
+PSQL="$prefix/bin/psql"
+PORT=1921
+
+-- 在start/restart/reload位置添加以下命令 --
+sleep 5
+su - $PGUSER -c "$PSQL -p $PORT -f $PGDATA/bin/db_image_init.sql >> $PGDATA/pg_log/db_image_init.log 2>&1 &"
