@@ -407,3 +407,6 @@ PORT=1921
 -- 在start/restart/reload位置添加以下命令 --
 sleep 5
 su - $PGUSER -c "$PSQL -p $PORT -f $PGDATA/bin/db_image_init.sql >> $PGDATA/pg_log/db_image_init.log 2>&1 &"
+
+## 业务开发注意事项
+* 插入图片之后，需要预热对应image_sig对应分区表和索引。分区可通过执行 explain select id from image_sig where image_id = :id 获取。
