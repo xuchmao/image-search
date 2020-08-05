@@ -195,7 +195,6 @@ ps -ef | grep postgresql
 ```
 
 ## 编译imgsmlr插件
-* [imgsmlr插件源码](https://github.com/postgrespro/imgsmlr)
 * mac os环境make命令依赖 xcode, 编译前需确保xcode已经安装
 * imgsmlr编译依赖[libgd库](https://github.com/libgd/libgd), mac os执行brew install gd安装gd, ubuntu使用apt-get install libgd2-noxpm-dev安装gd
 * 下载源代码 git clone https://github.com/postgrespro/imgsmlr.git
