@@ -99,7 +99,7 @@ initdb
 
 * 启动数据库 
 ```
-pg_ctl -D /data/pgsql -l logfile start
+pg_ctl -D ${PGDATA} -l logfile start
 
 -- 关闭、重启命令 --
 pg_ctl stop
@@ -224,8 +224,6 @@ make USE_PGXS=1 install
 
 ## 数据库表结构
 ```
--- 数据库 Postgresql 12.3版本 --
-
 -- 创建数据库 --
 create database image with encoding='utf8';
 
@@ -239,10 +237,7 @@ create extension if not exists imgsmlr;
 
 create extension if not exists pg_prewarm;
 
--- 创建临时图片数据表, 使用imgsmlr插件计算pattern和signature 使用完之后删除记录 --
-
-create table tmp_image (id varchar(36) primary key, data bytea, ctime timestamp(0) default localtimestamp(0));
-
+-- 创建图片特征值表 --
 create table image_sig (
   image_id int primary key,
   sig signature not null
@@ -255,7 +250,6 @@ comment on column image_sig.image_id is '图片ID';
 comment on column image_sig.sig is '图片signature';
 
 -- 创建image_sig表sig字段索引
-
 create index idx_img_sig on image_sig using gist(sig);
 
 -- 创建image_sig分区表 --
@@ -271,7 +265,6 @@ end;
 $$;
 
 -- dblink 连接函数 --
-
 create or replace function conn(
   name,   -- dblink名字
   text    -- 连接串,URL
@@ -285,8 +278,7 @@ exception when others then
 end;
 $$ language plpgsql strict;
 
--- 并行查询相似图像函数 根据需要设置conn_url中的user --
-
+-- 并行查询相似图像函数 根据需要设置conn_url中的user port --
 create or replace function parallel_image_search(
   v_sig signature,  -- 图像特征值
   v_pt_limit int -- 每个分区返回数量
@@ -295,7 +287,7 @@ returns setof record as
 $$
 declare
   pt_num int;
-  conn_url text := 'dbname=image user=foo'; -- dblink连接
+  conn_url text := 'dbname=image user=foo port=5432'; -- dblink连接
   conn_name text := 'd_conn_';
   sql text;
   ts1 timestamp;
@@ -329,7 +321,6 @@ end;
 $$ language plpgsql strict;
 
 -- image_sig表数据预热函数 --
-
 create or replace function prewarm_image_sig()
 returns void as $$
 declare
@@ -346,8 +337,7 @@ begin
 end;
 $$ language plpgsql strict;
 
--- 性能测试测试SQL--
-
+-- 性能测试测试SQL --
 create or replace function get_rand_img_sig(int)
 returns signature as $$
   select ('('||rtrim(ltrim(array(select (random()*$1)::float4 from generate_series(1,16))::text,'{'),'}')||')')::signature;
@@ -407,5 +397,6 @@ PORT=1921
 sleep 5
 su - $PGUSER -c "$PSQL -p $PORT -f $PGDATA/bin/db_image_init.sql >> $PGDATA/pg_log/db_image_init.log 2>&1 &"
 ```
+
 ## 业务开发注意事项
-* 插入图片之后，需要预热对应image_sig对应分区表和索引。分区可通过执行 explain select id from image_sig where image_id = :id 获取。
+* 插入图片后，需要预热对应image_sig对应分区表和索引。分区可通过执行 explain select id from image_sig where image_id = :id 获取。
