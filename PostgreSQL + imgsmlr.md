@@ -398,8 +398,8 @@ sleep 5
 su - $PGUSER -c "$PSQL -p $PORT -f $PGDATA/bin/db_image_init.sql >> $PGDATA/pg_log/db_image_init.log 2>&1 &"
 ```
 
-## 业务开发注意事项
-* 插入图片后，需要预热对应image_sig对应分区表和索引。分区可通过执行 explain select id from image_sig where image_id = :id 获取。
+## 注意事项
+* 业务开发，上传图片到postgreSQL图片库后，需要预热对应image_sig对应分区表和索引。分区编号可通过执行 explain select image_id from image_sig where image_id = :image_id 获取。
 
 ## 参考文档
 * [PostgreSQL 相似搜索插件介绍大汇总](https://github.com/digoal/blog/blob/master/201809/20180904_01.md)
