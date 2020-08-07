@@ -400,3 +400,9 @@ su - $PGUSER -c "$PSQL -p $PORT -f $PGDATA/bin/db_image_init.sql >> $PGDATA/pg_l
 
 ## 业务开发注意事项
 * 插入图片后，需要预热对应image_sig对应分区表和索引。分区可通过执行 explain select id from image_sig where image_id = :id 获取。
+
+## 参考文档
+* [PostgreSQL 相似搜索插件介绍大汇总](https://github.com/digoal/blog/blob/master/201809/20180904_01.md)
+* [PostgreSQL 在视频、图片去重，图像搜索业务中的应用](https://github.com/digoal/blog/blob/master/201611/20161126_01.md)
+* [PostgreSQL 11 相似图像搜索插件 imgsmlr 性能测试与优化 1 - 单机单表 (4亿图像)](https://github.com/digoal/blog/blob/master/201809/20180904_02.md)
+* [PostgreSQL 11 相似图像搜索插件 imgsmlr 性能测试与优化 2 - 单机分区表 (dblink 异步调用并行) (4亿图像)](https://github.com/digoal/blog/blob/master/201809/20180904_03.md)
